@@ -1,0 +1,83 @@
+#include <SPI.h>
+#include <SD.h>
+
+// Функция для полной перезаписи первых секторов карты
+// Это "принудительное" форматирование через запись
+bool bruteForceFormat(int csPin, SPIClass &spi) {
+    if (!SD.begin(csPin, spi, 400000)) { // начинаем с очень низкой скорости
+        Serial.println("Карта не отвечает даже на 400 кГц");
+        return false;
+    }
+    
+    Serial.println("Карта определена, пробуем форматирование...");
+    
+    // Пытаемся удалить все файлы (если карта читается)
+    File root = SD.open("/");
+    if (root) {
+        while (true) {
+            File entry = root.openNextFile();
+            if (!entry) break;
+            String path = "/" + String(entry.name());
+            entry.close();
+            SD.remove(path.c_str());
+            Serial.print("Удалён: ");
+            Serial.println(path);
+        }
+        root.close();
+    }
+    
+    SD.end();
+    delay(100);
+    
+    // Пересоздаём файловую систему через создание большого файла
+    if (!SD.begin(csPin, spi, 400000)) {
+        return false;
+    }
+    
+    // Создаём большой файл, чтобы перезаписать всю карту
+    File file = SD.open("/format.bin", FILE_WRITE);
+    if (!file) {
+        Serial.println("Не могу создать файл");
+        SD.end();
+        return false;
+    }
+    
+    uint8_t buffer[512] = {0}; // заполняем нулями
+    uint32_t sectors = 65536; // примерно 32 МБ для 32 ГБ карты
+    
+    Serial.println("Запись форматирующих данных...");
+    for (uint32_t i = 0; i < sectors; i++) {
+        if (i % 1000 == 0) {
+            Serial.printf("Сектор %d/%d\n", i, sectors);
+        }
+        file.write(buffer, 512);
+    }
+    
+    file.close();
+    SD.remove("/format.bin"); // удаляем временный файл
+    SD.end();
+    
+    return true;
+}
+
+void setup() {
+    Serial.begin(115200);
+    delay(1000);
+    
+    Serial.println("Жёсткое форматирование SD карты...");
+    
+    SPI.begin(18, 19, 23, 5);
+    
+    if (bruteForceFormat(5, SPI)) {
+        Serial.println("Форматирование завершено!");
+    } else {
+        Serial.println("Форматирование не удалось");
+    }
+    
+    // Финальная проверка
+    if (SD.begin(5, SPI, 4000000)) {
+        Serial.println("Карта готова к работе!");
+    }
+}
+
+void loop() {}

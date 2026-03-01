@@ -1,3 +1,31 @@
+//Шаблон
+/*File file = SD.open(filename, FILE_WRITE);
+  if (!file) {
+    Serial.println("Ошибка файла для записи");
+    return;
+  } 
+  else {
+    Serial.println("Успешно записано");
+    file.println(millis());
+    file.close();
+  }*/
+
+/*File file = SD.open(filename);
+  if (!file) {
+    Serial.println("Ошибка открытия файла для чтения");
+    return;
+  } 
+  else {
+    Serial.print("Содержимое файла: ");
+    while (file.available()) {
+      Serial.write(file.read());
+    }
+    file.close();
+    Serial.println();
+  }*/
+
+
+
 // Код для записи
 #include <Arduino.h>
 #include <driver/i2s.h>
@@ -182,3 +210,55 @@ void loop()
   }
   
 }
+
+
+
+//Код для чтения
+#include <Arduino.h>
+#include <SPI.h>
+#include <SD.h>
+
+// Конфигурация пинов для SD-карты
+#define SD_CS_PIN 5
+#define SD_MOSI_PIN 23
+#define SD_MISO_PIN 19
+#define SD_SCK_PIN  18
+
+// Название файла для записи в SD-карту и чтения из неё
+const char* filename = "/audio.txt";
+
+// Начало SPI интерфейса для SD-карты
+void initSPI()
+{
+  SPI.begin(SD_SCK_PIN, SD_MISO_PIN, SD_MOSI_PIN, SD_CS_PIN);
+  if (!SD.begin(SD_CS_PIN, SPI, 4000000)) {
+    Serial.println("Ошибка монтирования SD карты");
+    while(true);
+  }
+  Serial.println("Монтирование SD-карты прошло успешно");
+  delay(50); // У карты есть своя инерция для записи и чтения
+}
+
+void setup() 
+{
+  
+  Serial.begin(115200);
+  delay(1000); // Чтобы USB успел отреагировать
+  
+  initSPI();
+  File file = SD.open(filename);
+  if (!file) {
+    Serial.println("Ошибка открытия файла для чтения");
+    while(true);
+  } 
+  else {
+    Serial.print("Содержимое файла: ");
+    while (file.available()) {
+      Serial.write(file.read());
+    }
+    file.close();
+    Serial.println();
+  }
+}
+
+void loop() {}
